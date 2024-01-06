@@ -16,7 +16,7 @@ struct FileEntry {
 struct FileEntry registered_files[MAX_PENDING_CONNECTIONS];
 int num_registered_files = 0;
 
-void handle_client(int client_socket) {
+void handle_client(int client_socket, struct sockaddr_in client_addr) {
     char buffer[1024];
     ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
 
@@ -40,7 +40,9 @@ void handle_client(int client_socket) {
     if (strcmp(command, "REGISTER") == 0) {
         // Dodavanje datoteke u spisak prijavljenih datoteka
         strcpy(registered_files[num_registered_files].filename, filename);
-        inet_ntop(AF_INET, &client_socket, registered_files[num_registered_files].ip_address, sizeof(registered_files[num_registered_files].ip_address));
+        //inet_ntop(AF_INET, &client_socket, registered_files[num_registered_files].ip_address, sizeof(registered_files[num_registered_files].ip_address));
+        inet_ntop(AF_INET, &client_addr.sin_addr, registered_files[num_registered_files].ip_address, sizeof(registered_files[num_registered_files].ip_address));
+
 
         printf("File %s registered by %s\n", filename, registered_files[num_registered_files].ip_address);
         num_registered_files++;
@@ -58,7 +60,7 @@ void handle_client(int client_socket) {
                 num_registered_files--;
 
                 // Razmena datoteke
-                send_file(client_socket, filename);
+                //send_file(client_socket, filename);
                 file_found = 1;
                 break;
             }
@@ -131,7 +133,7 @@ int start_server() {
         printf("Accepted connection from %s:%d\n", client_ip, ntohs(client_addr.sin_port));
 
         // Pokretanje niti za svakog klijenta
-        handle_client(client_socket);
+        handle_client(client_socket, client_addr);
     }
 
     close(server_socket);

@@ -6,6 +6,8 @@
 
 #define DEFAULT_BUFLEN 512
 
+
+
 void register_file(const char* filename) {
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket == -1) {
@@ -41,7 +43,7 @@ int main() {
     const char* file_to_register = "test.txt";
     register_file(file_to_register);
     
-    struct sockaddr_in server, client;
+    //struct sockaddr_in client;
     int client1_sock, read_size, c;
     char client_message[DEFAULT_BUFLEN];
     
@@ -54,12 +56,12 @@ int main() {
     puts("Socket created");
     
     //Prepare the sockaddr_in structure
-    server.sin_family = AF_INET;
+    /*server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(9998);
+    server.sin_port = htons(9998);*/
     
     //Bind
-    if( bind(server_socket,(struct sockaddr *)&server , sizeof(server)) < 0)
+    /*if( bind(server_socket,(struct sockaddr *)&server , sizeof(server)) < 0)
     {
         //print the error message
         perror("bind failed. Error");
@@ -71,7 +73,7 @@ int main() {
         perror("Error listening on server socket");
         close(server_socket);
         return -1;
-    }
+    }*/
 
     printf("Server listening on port 9999...\n");
     
