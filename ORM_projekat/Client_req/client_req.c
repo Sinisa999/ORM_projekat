@@ -4,21 +4,34 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-void receive_file(const char* file_path, int socket) {
-    FILE* file = fopen(file_path, "wb");
-    if (!file) {
-        perror("Error opening file for writing");
-        return;
-    }
-
+void ReceiveFile(int sockfd, char *ime_fajla)
+{
+    int n;
+    FILE *fp;
+    char *filename = ime_fajla;
     char buffer[1024];
-    ssize_t bytes_received;
 
-    while ((bytes_received = recv(socket, buffer, sizeof(buffer), 0)) > 0) {
-        fwrite(buffer, 1, bytes_received, file);
+    fp = fopen(filename, "w");
+    if(fp==NULL)
+    {
+        perror("[-]Error in creating file.");
+        exit(1);
     }
+    while(1)
+    {
+        n = recv(sockfd, buffer, 1024, 0);
+        if(n<=0)
+        {
+            break;
+            return;
+        }
+        fprintf(fp, "%s", buffer);
+        bzero(buffer, 1024);
+    }
+    fclose(fp);
+    return;
 
-    fclose(file);
+
 }
 
 int main()
@@ -73,9 +86,8 @@ int main()
     }
 
     close(client_socket);
-    
+
     //slanje zahteva klientu kod koga se nalazi fajl
-    char msg_request[100] = "test.txt";
     int download_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (download_socket == -1) {
         perror("Error creating download socket");
@@ -86,25 +98,25 @@ int main()
     download_addr.sin_family = AF_INET;
     download_addr.sin_addr.s_addr = inet_addr(response);
     download_addr.sin_port = htons(9998);
-    
+
     if (connect(download_socket, (struct sockaddr*)&download_addr, sizeof(download_addr)) == -1) {
         perror("Error connecting to download client");
         close(download_socket);
         return;
     }
-    
+
     printf("Connected to the other client");
-    
+
     if(send(download_socket, ime_fajla, sizeof(ime_fajla), 0) == -1)
     {
     	perror("Error in sending data");
     	return;
     }
-    
+
     //const char kopija = "kopija.txt";
-    
-    receive_file("kopija.txt", download_socket);
-    
-    close(download_socket); 
+
+    ReceiveFile(download_socket, ime_fajla);
+
+    close(download_socket);
 
 }
