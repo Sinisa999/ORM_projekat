@@ -4,14 +4,17 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-void ReceiveFile(int sockfd, char *ime_fajla)
+#define SIZE 1024
+
+
+//Receive file from Register-Client
+void ReceiveFile(int sockfd, char *fileName)
 {
     int n;
     FILE *fp;
-    char *filename = ime_fajla;
-    char buffer[1024];
+    char buffer[SIZE];
 
-    fp = fopen(filename, "w");
+    fp = fopen(fileName, "w");
     if(fp==NULL)
     {
         perror("[-]Error in creating file.");
@@ -19,28 +22,29 @@ void ReceiveFile(int sockfd, char *ime_fajla)
     }
     while(1)
     {
-        n = recv(sockfd, buffer, 1024, 0);
+        n = recv(sockfd, buffer, SIZE, 0);
         if(n<=0)
         {
             break;
-            return;
+            return ;
         }
         fprintf(fp, "%s", buffer);
-        bzero(buffer, 1024);
+        bzero(buffer, SIZE);
     }
     fclose(fp);
-    return;
+	puts("FILE DOWNLOADED");
+    return ;
 
 
 }
 
 int main()
 {
-	//Slanje zahteva serveru
-	int client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket == -1) {
+	//Send request to server
+	int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (clientSocket == -1) {
         perror("Error creating client socket");
-        return;
+        return -1;
     }
 
     struct sockaddr_in server_addr;
@@ -48,50 +52,50 @@ int main()
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(9999);
 
-    if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+    if (connect(clientSocket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("Error connecting to server");
-        close(client_socket);
-        return;
+        close(clientSocket);
+        return -1;
     }
 
-    // Slanje zahteva za preuzimanje datoteke
-    char request[512];
-    char komanda[100];
-    char ime_fajla[100];
-    //snprintf(request, sizeof(request), "REQUEST %s", filename);
-    printf("Unesite komadnu u sledecem formatu: REQUEST (ime fajla koja zelite da preuzmete) \n");
+    // Sending request for downloading a file
+    char request[SIZE/2];
+    char command[100];
+    char fileName[100];
+
+    printf("Provide the following command | REQUEST (file_name.txt)  \n");
     scanf("%[^\n]", request);
-    sscanf(request, "%s %s", komanda, ime_fajla);
-    send(client_socket, request, strlen(request), 0);
+    sscanf(request, "%s %s", command, fileName);
+    send(clientSocket, request, strlen(request), 0);
 
-    // Čitanje odgovora servera
+    // Reading server respons
     char response[1024];
-    ssize_t bytes_received = recv(client_socket, response, sizeof(response), 0);
-    if (bytes_received <= 0) {
+    int bytesReceived = recv(clientSocket, response, sizeof(response), 0);
+    if (bytesReceived <= 0) {
         perror("Error receiving data from server");
-        close(client_socket);
-        return;
+        close(clientSocket);
+        return -1;
     }
 
-    response[bytes_received] = '\0';
-    printf("%s", response);
+    response[bytesReceived] = '\0';
 
     if (strcmp(response, "File not found") == 0) {
         printf("File not found on the server.\n");
     } else {
-        // Povezivanje sa klijentom koji je prijavio datoteku
-        char download_from_ip[INET_ADDRSTRLEN];
-        strcpy(download_from_ip, response);
-        //download_file_from_client(download_from_ip, filename);
+        // Connecting with client that registererd file
+        char downloadFromIp[INET_ADDRSTRLEN];
+        strcpy(downloadFromIp, response);
     }
 
-    close(client_socket);
+	printf("SERVER MESSAGE [%s]\n", response);
 
-    //slanje zahteva klientu kod koga se nalazi fajl
-    int download_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (download_socket == -1) {
+    close(clientSocket);
+
+    //Sending request to client who has the file
+    int downloadSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (downloadSocket == -1) {
         perror("Error creating download socket");
-        return;
+        return -1;
     }
 
     struct sockaddr_in download_addr;
@@ -99,24 +103,23 @@ int main()
     download_addr.sin_addr.s_addr = inet_addr(response);
     download_addr.sin_port = htons(9998);
 
-    if (connect(download_socket, (struct sockaddr*)&download_addr, sizeof(download_addr)) == -1) {
+    if (connect(downloadSocket, (struct sockaddr*)&download_addr, sizeof(download_addr)) == -1) {
         perror("Error connecting to download client");
-        close(download_socket);
-        return;
+        close(downloadSocket);
+        return -1;
     }
 
-    printf("Connected to the other client");
+    	puts("Connected to the register client");
 
-    if(send(download_socket, ime_fajla, sizeof(ime_fajla), 0) == -1)
+    if(send(downloadSocket, fileName, sizeof(fileName), 0) == -1)
     {
     	perror("Error in sending data");
-    	return;
+    	return -1;
     }
 
-    //const char kopija = "kopija.txt";
+    ReceiveFile(downloadSocket, fileName);
 
-    ReceiveFile(download_socket, ime_fajla);
 
-    close(download_socket);
+    close(downloadSocket);
 
 }

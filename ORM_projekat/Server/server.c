@@ -7,94 +7,80 @@
 #define MAX_FILENAME 256
 #define MAX_PENDING_CONNECTIONS 5
 
-// Spisak prijavljenih datoteka
+// List of registered files
 struct FileEntry {
-    char filename[MAX_FILENAME];
-    char ip_address[INET_ADDRSTRLEN];
+    char fileName[MAX_FILENAME];
+    char ipAddress[INET_ADDRSTRLEN];
 };
 
-struct FileEntry registered_files[MAX_PENDING_CONNECTIONS];
-int num_registered_files = 0;
+struct FileEntry registeredFiles[MAX_PENDING_CONNECTIONS];
+int numRegisteredFiles = 0;
 
-void handle_client(int client_socket, struct sockaddr_in client_addr) {
+void handleClient(int clientSocket, struct sockaddr_in client_addr) {
     char buffer[1024];
-    ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+    int bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
 
-    if (bytes_received <= 0) {
+    if (bytesReceived <= 0) {
         perror("Error receiving data from client");
-        close(client_socket);
+        close(clientSocket);
         return;
     }
 
-    buffer[bytes_received] = '\0';
+    buffer[bytesReceived] = '\0';
 
     char command[MAX_FILENAME];
-    char filename[MAX_FILENAME];
+    char fileName[MAX_FILENAME];
 
-    if (sscanf(buffer, "%s %s", command, filename) != 2) {
+    if (sscanf(buffer, "%s %s", command, fileName) != 2) {
         fprintf(stderr, "Invalid request format\n");
-        close(client_socket);
+        close(clientSocket);
         return;
     }
 
     if (strcmp(command, "REGISTER") == 0) {
-        // Dodavanje datoteke u spisak prijavljenih datoteka
-        strcpy(registered_files[num_registered_files].filename, filename);
-        //inet_ntop(AF_INET, &client_socket, registered_files[num_registered_files].ip_address, sizeof(registered_files[num_registered_files].ip_address));
-        inet_ntop(AF_INET, &client_addr.sin_addr, registered_files[num_registered_files].ip_address, sizeof(registered_files[num_registered_files].ip_address));
+        // Adding file to list of registered files
+        strcpy(registeredFiles[numRegisteredFiles].fileName, fileName);
+
+        inet_ntop(AF_INET, &client_addr.sin_addr, registeredFiles[numRegisteredFiles].ipAddress, sizeof(registeredFiles[numRegisteredFiles].ipAddress));
 
 
-        printf("File %s registered by %s\n", filename, registered_files[num_registered_files].ip_address);
-        num_registered_files++;
+        printf("File %s registered by %s\n", fileName, registeredFiles[numRegisteredFiles].ipAddress);
+        numRegisteredFiles++;
+	puts("[+]File");
     } else if (strcmp(command, "REQUEST") == 0) {
-        // Provera da li je datoteka prijavljena
-        int file_found = 0;
+        // Check if the file i already registered
+        int fileFound = 0;
         int i;
-        for (i = 0; i < num_registered_files; i++) {
-            if (strcmp(registered_files[i].filename, filename) == 0) {
-                // Slanje IP adrese klijenta koji je prijavio datoteku
-                send(client_socket, registered_files[i].ip_address, strlen(registered_files[i].ip_address), 0);
+        for (i = 0; i < numRegisteredFiles; i++) {
+            if (strcmp(registeredFiles[i].fileName, fileName) == 0) {
+                // Sending IP of client who registered the file
+                send(clientSocket, registeredFiles[i].ipAddress, strlen(registeredFiles[i].ipAddress), 0);
 
-                // Uklanjanje datoteke iz spiska prijavljenih datoteka
-                memmove(&registered_files[i], &registered_files[i + 1], (num_registered_files - i - 1) * sizeof(struct FileEntry));
-                num_registered_files--;
+                // Removing file from flist of registered files
+                memmove(&registeredFiles[i], &registeredFiles[i + 1], (numRegisteredFiles - i - 1) * sizeof(struct FileEntry));
+                numRegisteredFiles--;
+		puts("[-]File");
 
-                // Razmena datoteke
-                //send_file(client_socket, filename);
-                file_found = 1;
+                // File exchange
+
+                fileFound = 1;
                 break;
             }
         }
 
-        if (!file_found) {
-            // Obaveštenje da datoteka nije pronađena
-            send(client_socket, "File not found", strlen("File not found"), 0);
+        if (!fileFound) {
+             // Message that the file is not found
+            send(clientSocket, "File not found", strlen("File not found"), 0);
         }
     }
 
-    close(client_socket);
+    close(clientSocket);
 }
 
-void send_file(int client_socket, const char* filename) {
-    // Simulacija slanja datoteke (prilagoditi prema potrebama)
-    FILE* file = fopen(filename, "rb");
-    if (!file) {
-        perror("Error opening file");
-        return;
-    }
 
-    char buffer[1024];
-    size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        send(client_socket, buffer, bytes_read, 0);
-    }
-
-    fclose(file);
-}
-
-int start_server() {
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1) {
+int startServer() {
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1) {
         perror("Error creating server socket");
         return -1;
     }
@@ -104,15 +90,15 @@ int start_server() {
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(9999);
 
-    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(serverSocket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
         perror("Error binding server socket");
-        close(server_socket);
+        close(serverSocket);
         return -1;
     }
 
-    if (listen(server_socket, MAX_PENDING_CONNECTIONS) == -1) {
+    if (listen(serverSocket, MAX_PENDING_CONNECTIONS) == -1) {
         perror("Error listening on server socket");
-        close(server_socket);
+        close(serverSocket);
         return -1;
     }
 
@@ -121,30 +107,29 @@ int start_server() {
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-        int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_addr_len);
+        int clientSocket = accept(serverSocket, (struct sockaddr*)&client_addr, &client_addr_len);
 
-        if (client_socket == -1) {
+        if (clientSocket == -1) {
             perror("Error accepting connection from client");
             continue;
         }
 
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, sizeof(client_ip));
-        printf("Accepted connection from %s:%d\n", client_ip, ntohs(client_addr.sin_port));
+        char clientIp[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &client_addr.sin_addr, clientIp, sizeof(clientIp));
+        printf("Accepted connection from %s:%d\n", clientIp, ntohs(client_addr.sin_port));
 
-        // Pokretanje niti za svakog klijenta
-        handle_client(client_socket, client_addr);
+        // Creating a thread for every client
+        handleClient(clientSocket, client_addr);
     }
 
-    close(server_socket);
+    close(serverSocket);
     return 0;
 }
 
 int main() {
-    if (start_server() == -1) {
+    if (startServer() == -1) {
         return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
 }
-
