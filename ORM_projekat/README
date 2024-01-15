@@ -1,0 +1,3 @@
+Program se prevodi tako sto se u terminalu pokrene komanda make i zatim fajl koji treba prevesti ("make server", "make client_reg", "make client_req").
+
+Aplikacije se pokrecu tako ste u istoimenim folderima iz terminala pokrene komanda ./ i zatim ime fajla koji se prevodi ("./server", "./client_reg", "./client_req").
